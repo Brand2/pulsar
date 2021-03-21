@@ -182,7 +182,7 @@ public class Policies {
                     && Objects.equals(max_unacked_messages_per_subscription, max_unacked_messages_per_subscription)
                     && max_consumers_per_subscription == other.max_consumers_per_subscription
                     && compaction_threshold == other.compaction_threshold
-                    && compaction_keep_policy == other.compaction_keep_policy
+                    && Objects.equals(compaction_keep_policy, other.compaction_keep_policy)
                     && offload_threshold == other.offload_threshold
                     && Objects.equals(offload_deletion_lag_ms, other.offload_deletion_lag_ms)
                     && schema_auto_update_compatibility_strategy == other.schema_auto_update_compatibility_strategy
