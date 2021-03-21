@@ -143,7 +143,10 @@ public class TwoPhaseCompactor extends Compactor {
                     Pair<String, Integer> keyAndSize = extractKeyAndSize(m);
                     if (keyAndSize != null) {
                         if (keyAndSize.getRight() > 0) {
-                            latestForKey.put(keyAndSize.getLeft(), id);
+                            if ((this.getCompactionType().equals("keep-last")) || (
+                                this.getCompactionType().equals("keep-first") && 
+                                latestForKey.get(keyAndSize.getLeft()) == null)) {
+                                latestForKey.put(keyAndSize.getLeft(), id);
                         } else {
                             deletedMessage = true;
                             latestForKey.remove(keyAndSize.getLeft());

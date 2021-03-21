@@ -46,6 +46,7 @@ import org.apache.pulsar.common.policies.data.PublishRate;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
 import org.apache.pulsar.common.policies.data.SubscribeRate;
 import org.apache.pulsar.common.policies.data.TopicStats;
+import org.eclipse.jetty.util.Callback.Completable;
 /**
  * Admin interface for Topics management.
  */
@@ -2526,6 +2527,115 @@ public interface Topics {
      *            Topic name
      */
     CompletableFuture<Void> removeCompactionThresholdAsync(String topic);
+
+    /**
+     * Get the compaction keep policy for messages for a topic. Valid values are keep-last (default) and keep-first,
+     * which keep the last message related to a key, or the first message respectively. Only relevant when compaction
+     * threshold has been set.
+     * 
+     * <p/>
+     * Response example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param topic
+     *             Topic name
+     * 
+     * @throws NotAuthorizedException
+     *             Don't have admin permission
+     * @throws NotFoundException
+     *             Topic does not exist
+     * @throws PulsarAdminException
+     *             Unexpected error
+     */
+    String getCompactionKeepPolicy(String topic) throws PulsarAdminException;
+     
+     /**
+     * Get the compaction keep policy for messages for a topic asychronously. Valid values are keep-last (default)
+     * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
+     * when compaction threshold has been set.
+     * 
+     * <p/>
+     * Response example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param topic
+     *          Topic name
+     */
+    CompletableFuture<String> getCompactionKeepPolicyAsync(String topic);
+
+    /**
+     * Set the compaction keep policy for messages for a topic. Valid values are keep-last (default) and keep-first,
+     * which keep the last message related to a key, or the first message respectively. Only relevant when compaction
+     * threshold has been set.
+     * 
+     * <p/>
+     * Request example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param topic
+     *             Topic name
+     * @param compactionKeepPolicy
+     *             The policy to adopt when determining which messages to keep after compaction
+     * 
+     * @throws NotAuthorizedException
+     *             Don't have admin permission
+     * @throws NotFoundException
+     *             Topic does not exist
+     * @throws PulsarAdminException
+     *             Unexpected error
+     */
+     void setCompactionKeepPolicy(String topic, String compactionKeepPolicy) throws PulsarAdminException;
+
+     /**
+     * Set the compaction keep policy for messages for a topic asychronously. Valid values are keep-last (default)
+     * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
+     * when compaction threshold has been set.
+     * 
+     * <p/>
+     * Request example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param topic
+     *             Topic name
+     * @param compactionKeepPolicy
+     *             The policy to adopt when determining which messages to keep after compaction   
+     */
+    CompletableFuture<Void> setCompactionKeepPolicyAsync(String topic, String compactionKeepPolicy);
+
+    /**
+     * Remove the compaction keep policy for messages for a topic.
+     * 
+     * @param topic
+     *             Topic name
+     * @param compactionKeepPolicy
+     *             The policy to adopt when determining which messages to keep after compaction
+     * 
+     * @throws PulsarAdminException
+     *             Unexpected error
+     */
+    void removeCompactionKeepPolicy(String topic) throws PulsarAdminException;
+
+    /**
+     * Remove the compaction keep policy for messages for a topic asynchronously.
+     * 
+     * @param topic
+     *             Topic name
+     * @param compactionKeepPolicy
+     *             The policy to adopt when determining which messages to keep after compaction
+     */
+    CompletableFuture<Void> removeCompactionKeepPolicyAsync(String topic);
 
     /**
      * Set message-publish-rate (topics can publish this many messages per second).

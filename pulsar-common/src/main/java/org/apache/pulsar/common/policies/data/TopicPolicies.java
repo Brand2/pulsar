@@ -60,6 +60,7 @@ public class TopicPolicies {
     private DispatchRate dispatchRate = null;
     private DispatchRate subscriptionDispatchRate = null;
     private Long compactionThreshold = null;
+    private String compactionKeepPolicy = null;
     private PublishRate publishRate = null;
     private SubscribeRate subscribeRate = null;
     private Integer deduplicationSnapshotIntervalSeconds = null;
@@ -150,6 +151,10 @@ public class TopicPolicies {
 
     public boolean isCompactionThresholdSet() {
         return compactionThreshold != null;
+    }
+
+    public boolean isCompactionKeepPolicySet() {
+        return compactionKeepPolicy != null;
     }
 
     public boolean isPublishRateSet() {

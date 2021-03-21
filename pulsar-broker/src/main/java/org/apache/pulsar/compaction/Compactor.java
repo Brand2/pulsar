@@ -42,6 +42,7 @@ public abstract class Compactor {
     protected final ScheduledExecutorService scheduler;
     private final PulsarClient pulsar;
     private final BookKeeper bk;
+    private String compactionKeepPolicy;
 
     public Compactor(ServiceConfiguration conf,
                      PulsarClient pulsar,
@@ -51,6 +52,16 @@ public abstract class Compactor {
         this.scheduler = scheduler;
         this.pulsar = pulsar;
         this.bk = bk;
+        this.compactionKeepPolicy = "keep-last";
+    }
+
+    public Compactor setCompactionKeepPolicy(String compactionKeepPolicy) {
+        this.compactionKeepPolicy = compactionKeepPolicy;
+        return this;
+    }
+
+    public String getCompactionType() {
+        return this.compactionKeepPolicy;
     }
 
     public CompletableFuture<Long> compact(String topic) {

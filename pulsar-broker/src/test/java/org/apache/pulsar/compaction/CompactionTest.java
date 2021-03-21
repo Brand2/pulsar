@@ -102,8 +102,13 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testCompaction() throws Exception {
+    @DataProvider(name = "keepPolicy")
+    public static Object[][] keepPolicy() {
+        return new Object[][] {{"keep-last"}, {"keep-first"}};
+    }
+
+    @Test(dataProvider = "keepPolicy")
+    public void testCompaction(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
         final int numMessages = 20;
         final int maxKeys = 10;
@@ -125,12 +130,15 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
             String key = "key" + keyIndex;
             byte[] data = ("my-message-" + key + "-" + j).getBytes();
             producer.newMessage().key(key).value(data).send();
-            expected.put(key, data);
+            if ((expected.get(key) == null && compactionKeepPolicy.equals("keep-first"))
+                || compactionKeepPolicy.equals("keep-last")) {
+                expected.put(key, data);
+            }
             all.add(Pair.of(key, data));
         }
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         PersistentTopicInternalStats internalStats = admin.topics().getInternalStats(topic, false);
         // Compacted topic ledger should have same number of entry equals to number of unique key.
@@ -167,8 +175,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testCompactionWithReader() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactionWithReader(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
         final int numMessages = 20;
         final int maxKeys = 10;
@@ -191,12 +199,15 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
             String key = "key" + keyIndex;
             String value = "my-message-" + key + "-" + j;
             producer.newMessage().key(key).value(value.getBytes()).send();
-            expected.put(key, value);
+            if ((expected.get(key) == null && compactionKeepPolicy.equals("keep-first"))
+                || compactionKeepPolicy.equals("keep-last")) {
+                expected.put(key, value);
+            }
             all.add(Pair.of(key, value));
         }
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
 
 
@@ -230,8 +241,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
     }
 
 
-    @Test
-    public void testReadCompactedBeforeCompaction() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testReadCompactedBeforeCompaction(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer()
@@ -261,18 +272,22 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
                 .readCompacted(true).subscribe()) {
             Message<byte[]> m = consumer.receive();
             Assert.assertEquals(m.getKey(), "key0");
-            Assert.assertEquals(m.getData(), "content2".getBytes());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(m.getData(), "content2".getBytes());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(m.getData(), "content0".getBytes());
+            }
         }
     }
 
-    @Test
-    public void testReadEntriesAfterCompaction() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testReadEntriesAfterCompaction(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer()
@@ -287,7 +302,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         producer.newMessage().key("key0").value("content2".getBytes()).send();
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         producer.newMessage().key("key0").value("content3".getBytes()).send();
 
@@ -295,7 +310,11 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
                 .readCompacted(true).subscribe()) {
             Message<byte[]> m = consumer.receive();
             Assert.assertEquals(m.getKey(), "key0");
-            Assert.assertEquals(m.getData(), "content2".getBytes());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(m.getData(), "content2".getBytes());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(m.getData(), "content0".getBytes());
+            }
 
             m = consumer.receive();
             Assert.assertEquals(m.getKey(), "key0");
@@ -303,8 +322,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testSeekEarliestAfterCompaction() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testSeekEarliestAfterCompaction(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer()
@@ -317,14 +336,18 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         producer.newMessage().key("key0").value("content2".getBytes()).send();
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
                 .readCompacted(true).subscribe()) {
             consumer.seek(MessageId.earliest);
             Message<byte[]> m = consumer.receive();
             Assert.assertEquals(m.getKey(), "key0");
-            Assert.assertEquals(m.getData(), "content2".getBytes());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(m.getData(), "content2".getBytes());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(m.getData(), "content0".getBytes());
+            }
         }
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
@@ -345,8 +368,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testBrokerRestartAfterCompaction() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testBrokerRestartAfterCompaction(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer()
@@ -361,13 +384,17 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         producer.newMessage().key("key0").value("content2".getBytes()).send();
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
                 .readCompacted(true).subscribe()) {
             Message<byte[]> m = consumer.receive();
             Assert.assertEquals(m.getKey(), "key0");
-            Assert.assertEquals(m.getData(), "content2".getBytes());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(m.getData(), "content2".getBytes());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(m.getData(), "content0".getBytes());
+            }
         }
 
         stopBroker();
@@ -384,12 +411,16 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
                 .readCompacted(true).subscribe()) {
             Message<byte[]> m = consumer.receive();
             Assert.assertEquals(m.getKey(), "key0");
-            Assert.assertEquals(m.getData(), "content2".getBytes());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(m.getData(), "content2".getBytes());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(m.getData(), "content0".getBytes());
+            }
         }
     }
 
-    @Test
-    public void testCompactEmptyTopic() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactEmptyTopic(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer()
@@ -399,7 +430,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         pulsarClient.newConsumer().topic(topic).subscriptionName("sub1").readCompacted(true).subscribe().close();
 
-        new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
+        new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler)
+            .setCompactionKeepPolicy(compactionKeepPolicy);
 
         producer.newMessage().key("key0").value("content0".getBytes()).send();
 
@@ -411,8 +443,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testFirstMessageRetained() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testFirstMessageRetained(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -436,7 +468,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // Check that messages after compaction have same ids
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
@@ -448,13 +480,18 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message2 = consumer.receive();
             Assert.assertEquals(message2.getKey(), "key2");
-            Assert.assertEquals(new String(message2.getData()), "my-message-3");
-            Assert.assertEquals(message2.getMessageId(), messages.get(2).getMessageId());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+                Assert.assertEquals(message2.getMessageId(), messages.get(2).getMessageId());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-2");
+                Assert.assertEquals(message2.getMessageId(), messages.get(1).getMessageId());
+            }
         }
     }
 
-    @Test
-    public void testBatchMessageIdsDontChange() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testBatchMessageIdsDontChange(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -495,7 +532,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // Check that messages after compaction have same ids
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
@@ -507,13 +544,18 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message2 = consumer.receive();
             Assert.assertEquals(message2.getKey(), "key2");
-            Assert.assertEquals(new String(message2.getData()), "my-message-3");
-            Assert.assertEquals(message2.getMessageId(), messages.get(2).getMessageId());
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+                Assert.assertEquals(message2.getMessageId(), messages.get(2).getMessageId());
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-2");
+                Assert.assertEquals(message2.getMessageId(), messages.get(1).getMessageId());
+            }
         }
     }
 
-    @Test
-    public void testWholeBatchCompactedOut() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testWholeBatchCompactedOut(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -539,18 +581,22 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .subscriptionName("sub1").readCompacted(true).subscribe()){
             Message<byte[]> message = consumer.receive();
             Assert.assertEquals(message.getKey(), "key1");
-            Assert.assertEquals(new String(message.getData()), "my-message-4");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message.getData()), "my-message-4");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message.getData()), "my-message-1");
+            }
         }
     }
 
-    @Test
-    public void testKeyLessMessagesPassThrough() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testKeyLessMessagesPassThrough(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -576,7 +622,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .subscriptionName("sub1").readCompacted(true).subscribe()){
@@ -590,11 +636,19 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message3 = consumer.receive();
             Assert.assertEquals(message3.getKey(), "key1");
-            Assert.assertEquals(new String(message3.getData()), "my-message-4");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message3.getData()), "my-message-4");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message3.getData()), "my-message-3");
+            }
 
             Message<byte[]> message4 = consumer.receive();
             Assert.assertEquals(message4.getKey(), "key2");
-            Assert.assertEquals(new String(message4.getData()), "my-message-6");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message4.getData()), "my-message-6");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message4.getData()), "my-message-5");
+            }
 
             Message<byte[]> message5 = consumer.receive();
             Assert.assertFalse(message5.hasKey());
@@ -607,8 +661,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
     }
 
 
-    @Test
-    public void testEmptyPayloadDeletes() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testEmptyPayloadDeletes(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -676,7 +730,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .subscriptionName("sub1").readCompacted(true).subscribe()){
@@ -690,8 +744,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testEmptyPayloadDeletesWhenCompressed() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testEmptyPayloadDeletesWhenCompressed(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -756,7 +810,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .subscriptionName("sub1").readCompacted(true).subscribe()){
@@ -772,8 +826,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
     // test compact no keys
 
-    @Test
-    public void testCompactorReadsCompacted() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactorReadsCompacted(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // capture opened ledgers
@@ -820,7 +874,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // should have opened all except last to read
         Assert.assertTrue(ledgersOpened.contains(info.ledgers.get(0).ledgerId));
@@ -873,8 +927,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testCompactCompressedNoBatch() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactCompressedNoBatch(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -899,7 +953,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .subscriptionName("sub1").readCompacted(true).subscribe()){
@@ -909,12 +963,16 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message2 = consumer.receive();
             Assert.assertEquals(message2.getKey(), "key2");
-            Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-2");
+            }
         }
     }
 
-    @Test
-    public void testCompactCompressedBatching() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactCompressedBatching(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -943,7 +1001,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .subscriptionName("sub1").readCompacted(true).subscribe()){
@@ -953,7 +1011,11 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message2 = consumer.receive();
             Assert.assertEquals(message2.getKey(), "key2");
-            Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-2");
+            }
         }
     }
 
@@ -993,8 +1055,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testCompactEncryptedNoBatch() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactEncryptedNoBatch(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -1020,7 +1082,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // Check that messages after compaction have same ids
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
@@ -1032,12 +1094,16 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message2 = consumer.receive();
             Assert.assertEquals(message2.getKey(), "key2");
-            Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            }
         }
     }
 
-    @Test
-    public void testCompactEncryptedBatching() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactEncryptedBatching(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -1066,7 +1132,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // with encryption, all messages are passed through compaction as it doesn't
         // have the keys to decrypt the batch payload
@@ -1087,8 +1153,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testCompactEncryptedAndCompressedNoBatch() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactEncryptedAndCompressedNoBatch(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -1115,7 +1181,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // Check that messages after compaction have same ids
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
@@ -1127,12 +1193,16 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
             Message<byte[]> message2 = consumer.receive();
             Assert.assertEquals(message2.getKey(), "key2");
-            Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-3");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                Assert.assertEquals(new String(message2.getData()), "my-message-2");
+            }
         }
     }
 
-    @Test
-    public void testCompactEncryptedAndCompressedBatching() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactEncryptedAndCompressedBatching(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -1162,7 +1232,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // with encryption, all messages are passed through compaction as it doesn't
         // have the keys to decrypt the batch payload
@@ -1183,8 +1253,8 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test
-    public void testEmptyPayloadDeletesWhenEncrypted() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testEmptyPayloadDeletesWhenEncrypted(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // subscribe before sending anything, so that we get all messages
@@ -1237,7 +1307,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // compact the topic
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic)
                 .cryptoKeyReader(new EncKeyReader())
@@ -1267,11 +1337,11 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
     @DataProvider(name = "lastDeletedBatching")
     public static Object[][] lastDeletedBatching() {
-        return new Object[][] {{true}, {false}};
+        return new Object[][] {{true, "keep-last"}, {false, "keep-last"}, {true, "keep-first"}, {false, "keep-first"}};
     }
 
     @Test(timeOut = 20000, dataProvider = "lastDeletedBatching")
-    public void testCompactionWithLastDeletedKey(boolean batching) throws Exception {
+    public void testCompactionWithLastDeletedKey(boolean batching, String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer().topic(topic).enableBatching(batching)
@@ -1286,7 +1356,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         producer.newMessage().key("2").value("".getBytes()).send();
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         Set<String> expected = Sets.newHashSet("3");
         // consumer with readCompacted enabled only get compacted entries
@@ -1298,7 +1368,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
     }
 
     @Test(timeOut = 20000, dataProvider = "lastDeletedBatching")
-    public void testEmptyCompactionLedger(boolean batching) throws Exception {
+    public void testEmptyCompactionLedger(boolean batching, String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer().topic(topic).enableBatching(batching)
@@ -1312,7 +1382,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         producer.newMessage().key("2").value("".getBytes()).send();
 
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // consumer with readCompacted enabled only get compacted entries
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
@@ -1323,7 +1393,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
     }
 
     @Test(timeOut = 20000, dataProvider = "lastDeletedBatching")
-    public void testAllEmptyCompactionLedger(boolean batchEnabled) throws Exception {
+    public void testAllEmptyCompactionLedger(boolean batchEnabled, String compactionKeepPolicy) throws Exception {
         final String topic = "persistent://my-property/use/my-ns/testAllEmptyCompactionLedger" + UUID.randomUUID().toString();
 
         final int messages = 10;
@@ -1347,7 +1417,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // 2.compact the topic.
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // consumer with readCompacted enabled only get compacted entries
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
@@ -1357,8 +1427,9 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
         }
     }
 
-    @Test(timeOut = 20000)
-    public void testBatchAndNonBatchWithoutEmptyPayload() throws PulsarClientException, ExecutionException, InterruptedException {
+    @Test(timeOut = 20000, dataProvider = "keepPolicy")
+    public void testBatchAndNonBatchWithoutEmptyPayload(String compactionKeepPolicy) throws PulsarClientException,
+        ExecutionException, InterruptedException {
         final String topic = "persistent://my-property/use/my-ns/testBatchAndNonBatchWithoutEmptyPayload" + UUID.randomUUID().toString();
 
         // 1.create producer and publish message to the topic.
@@ -1392,7 +1463,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // 2.compact the topic.
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // consumer with readCompacted enabled only get compacted entries
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
@@ -1402,15 +1473,24 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
             assertNotNull(m1);
             assertNotNull(m2);
             assertEquals(m1.getKey(), k1);
-            assertEquals(new String(m1.getValue()), "5");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                assertEquals(new String(m1.getValue()), "5");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                assertEquals(new String(m1.getValue()), "0");
+            }
             assertEquals(m2.getKey(), k2);
-            assertEquals(new String(m2.getValue()), "3");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                assertEquals(new String(m2.getValue()), "3");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                assertEquals(new String(m2.getValue()), "0");
+            }
             Message<byte[]> none = consumer.receive(2, TimeUnit.SECONDS);
             assertNull(none);
         }
     }
-    @Test(timeOut = 20000)
-    public void testBatchAndNonBatchWithEmptyPayload() throws PulsarClientException, ExecutionException, InterruptedException {
+    @Test(timeOut = 20000, dataProvider = "keepPolicy")
+    public void testBatchAndNonBatchWithEmptyPayload(String compactionKeepPolicy) throws PulsarClientException,
+        ExecutionException, InterruptedException {
         final String topic = "persistent://my-property/use/my-ns/testBatchAndNonBatchWithEmptyPayload" + UUID.randomUUID().toString();
 
         // 1.create producer and publish message to the topic.
@@ -1448,7 +1528,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // 2.compact the topic.
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // consumer with readCompacted enabled only get compacted entries
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
@@ -1459,15 +1539,20 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
             assertNotNull(m2);
             assertEquals(m1.getKey(), k1);
             assertEquals(m2.getKey(), k3);
-            assertEquals(new String(m1.getValue()), "5");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                assertEquals(new String(m1.getValue()), "5");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                assertEquals(new String(m1.getValue()), "0");
+            }
             assertEquals(new String(m2.getValue()), "0");
             Message<byte[]> none = consumer.receive(2, TimeUnit.SECONDS);
             assertNull(none);
         }
     }
 
-    @Test(timeOut = 20000)
-    public void testBatchAndNonBatchEndOfEmptyPayload() throws PulsarClientException, ExecutionException, InterruptedException {
+    @Test(timeOut = 20000, dataProvider = "keepPolicy")
+    public void testBatchAndNonBatchEndOfEmptyPayload(String compactionKeepPolicy) throws PulsarClientException,
+        ExecutionException, InterruptedException {
         final String topic = "persistent://my-property/use/my-ns/testBatchAndNonBatchWithEmptyPayload" + UUID.randomUUID().toString();
 
         // 1.create producer and publish message to the topic.
@@ -1502,7 +1587,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // 2.compact the topic.
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // consumer with readCompacted enabled only get compacted entries
         try (Consumer<byte[]> consumer = pulsarClient.newConsumer().topic(topic).subscriptionName("sub1")
@@ -1510,14 +1595,19 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
             Message<byte[]> m1 = consumer.receive();
             assertNotNull(m1);
             assertEquals(m1.getKey(), k1);
-            assertEquals(new String(m1.getValue()), "5");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                assertEquals(new String(m1.getValue()), "5");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                assertEquals(new String(m1.getValue()), "0");
+            }
             Message<byte[]> none = consumer.receive(2, TimeUnit.SECONDS);
             assertNull(none);
         }
     }
 
     @Test(timeOut = 20000, dataProvider = "lastDeletedBatching")
-    public void testCompactMultipleTimesWithoutEmptyMessage(boolean batchEnabled) throws PulsarClientException, ExecutionException, InterruptedException {
+    public void testCompactMultipleTimesWithoutEmptyMessage(boolean batchEnabled, String compactionKeepPolicy) throws
+        PulsarClientException, ExecutionException, InterruptedException {
         final String topic = "persistent://my-property/use/my-ns/testCompactMultipleTimesWithoutEmptyMessage" + UUID.randomUUID().toString();
 
         final int messages = 10;
@@ -1542,7 +1632,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // 2.compact the topic.
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // 3. Send more ten messages
         futures.clear();
@@ -1559,14 +1649,19 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
             Message<byte[]> m1 = consumer.receive();
             assertNotNull(m1);
             assertEquals(m1.getKey(), key);
-            assertEquals(new String(m1.getValue()), "19");
+            if (compactionKeepPolicy.equals("keep-last")) {
+                assertEquals(new String(m1.getValue()), "19");
+            } else if (compactionKeepPolicy.equals("keep-first")) {
+                assertEquals(new String(m1.getValue()), "0");
+            }
             Message<byte[]> none = consumer.receive(2, TimeUnit.SECONDS);
             assertNull(none);
         }
     }
 
     @Test(timeOut = 2000000, dataProvider = "lastDeletedBatching")
-    public void testReadUnCompacted(boolean batchEnabled) throws PulsarClientException, ExecutionException, InterruptedException {
+    public void testReadUnCompacted(boolean batchEnabled, String compactionKeepPolicy) throws PulsarClientException,
+        ExecutionException, InterruptedException {
         final String topic = "persistent://my-property/use/my-ns/testReadUnCompacted" + UUID.randomUUID().toString();
 
         final int messages = 10;
@@ -1591,7 +1686,7 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
 
         // 2.compact the topic.
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         // 3. Send more ten messages
         futures.clear();
@@ -1609,7 +1704,11 @@ public class CompactionTest extends MockedPulsarServiceBaseTest {
                 Message<byte[]> received = consumer.receive();
                 assertNotNull(received);
                 assertEquals(received.getKey(), key);
-                assertEquals(new String(received.getValue()), i + 9 + "");
+                if (i == 0 && compactionKeepPolicy.equals("keep-first")) {
+                    assertEquals(new String(received.getValue()), i + "");
+                } else {
+                    assertEquals(new String(received.getValue()), i + 9 + "");
+                }
                 consumer.acknowledge(received);
             }
             Message<byte[]> none = consumer.receive(2, TimeUnit.SECONDS);

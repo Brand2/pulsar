@@ -2691,6 +2691,63 @@ public class NamespacesImpl extends BaseResource implements Namespaces {
     }
 
     @Override
+    public String getCompactionKeepPolicy(String namespace) throws PulsarAdminException {
+        try {
+            return getCompactionKeepPolicyAsync(namespace).
+                get(this.readTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw (PulsarAdminException) e.getCause();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PulsarAdminException(e);
+        } catch (TimeoutException e) {
+            throw new PulsarAdminException.TimeoutException(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<String> getCompactionKeepPolicyAsync(String namespace) {
+        NamespaceName ns = NamespaceName.get(namespace);
+        WebTarget path = namespacePath(ns, "compactionKeepPolicy");
+        final CompletableFuture<String> future = new CompletableFuture<>();
+        asyncGetRequest(path,
+                new InvocationCallback<String>() {
+                    @Override
+                    public void completed(String policy) {
+                        future.complete(policy);
+                    }
+
+                    @Override
+                    public void failed(Throwable throwable) {
+                        future.completeExceptionally(getApiException(throwable.getCause()));
+                    }
+                });
+        return future;
+    }
+
+    @Override
+    public void setCompactionKeepPolicy(String namespace, String compactionKeepPolicy) throws PulsarAdminException {
+        try {
+            setCompactionKeepPolicyAsync(namespace, compactionKeepPolicy)
+                    .get(this.readTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw (PulsarAdminException) e.getCause();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PulsarAdminException(e);
+        } catch (TimeoutException e) {
+            throw new PulsarAdminException.TimeoutException(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> setCompactionKeepPolicyAsync(String namespace, String compactionKeepPolicy) {
+        NamespaceName ns = NamespaceName.get(namespace);
+        WebTarget path = namespacePath(ns, "compactionKeepPolicy");
+        return asyncPutRequest(path, Entity.entity(compactionKeepPolicy, MediaType.APPLICATION_JSON));
+    }
+
+    @Override
     public long getOffloadThreshold(String namespace) throws PulsarAdminException {
         try {
             return getOffloadThresholdAsync(namespace).

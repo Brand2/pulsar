@@ -2170,6 +2170,36 @@ public abstract class NamespacesBase extends AdminResource {
         }
     }
 
+    protected String internalGetCompactionKeepPolicy() {
+        validateNamespacePolicyOperation(namespaceName, PolicyName.COMPACTION, PolicyOperation.WRITE);
+        return getNamespacePolicies(namespaceName).compaction_keep_policy;
+    }
+
+    protected String internalSetCompactionKeepPolicy(String newPolicy) {
+        validateNamespacePolicyOperation(namespaceName, PolicyName.COMPACTION, PolicyOperation.WRITE);
+        validatePoliciesReadOnlyAccess();
+        
+        try {
+            if (!newPolicy.equals("keep-last") && !newPolicy.equals("keep-first")) {
+                throw new RestException(Status.PRECONDITION_FAILED,
+                    "compactionKeepPolicy must be one of 'keep-last' or 'keep-first'");
+            }
+            final String path = path(POLICIES, namespaceName.toString());
+            updatePolicies(path, (policies) -> {
+                policies.compaction_keep_policy = newPolicy;
+                return policies;
+            });
+            log.info("[{}] Successfully updated compactionKeepPolicy configuration: namespace={}, value={}",
+                clientAppId(), namespaceName, newPolicy);
+        } catch (RestException pfe) {
+            throw pfe;
+        } catch (Exception e) {
+            log.error("[{}] Failed to update compactionKeepPolicy configuration for namespace {}: {}",
+                clientAppId(), namespaceName, e);
+            throw new RestException(e);
+        }
+    }
+
     protected long internalGetOffloadThreshold() {
         validateNamespacePolicyOperation(namespaceName, PolicyName.OFFLOAD, PolicyOperation.READ);
         Policies policies = getNamespacePolicies(namespaceName);

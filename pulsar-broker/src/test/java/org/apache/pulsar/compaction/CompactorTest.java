@@ -50,6 +50,7 @@ import org.apache.pulsar.common.policies.data.TenantInfo;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class CompactorTest extends MockedPulsarServiceBaseTest {
@@ -79,11 +80,12 @@ public class CompactorTest extends MockedPulsarServiceBaseTest {
         compactionScheduler.shutdownNow();
     }
 
-    private List<String> compactAndVerify(String topic, Map<String, byte[]> expected) throws Exception {
+    private List<String> compactAndVerify(String topic, Map<String, byte[]> expected, String compactionKeepPolicy)
+        throws Exception {
         BookKeeper bk = pulsar.getBookKeeperClientFactory().create(
                 this.conf, null, Optional.empty(), null);
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        long compactedLedgerId = compactor.compact(topic).get();
+        long compactedLedgerId = compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
 
         LedgerHandle ledger = bk.openLedger(compactedLedgerId,
                                             Compactor.COMPACTED_TOPIC_LEDGER_DIGEST_TYPE,
@@ -111,8 +113,13 @@ public class CompactorTest extends MockedPulsarServiceBaseTest {
         return keys;
     }
 
-    @Test
-    public void testCompaction() throws Exception {
+    @DataProvider(name = "keepPolicy")
+    public static Object[][] keepPolicy() {
+        return new Object[][] {{"keep-last", "keep-first"}};
+    }
+
+    @Test(dataProvider = "keepPolicy")
+    public void testCompaction(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
         final int numMessages = 1000;
         final int maxKeys = 10;
@@ -133,13 +140,19 @@ public class CompactorTest extends MockedPulsarServiceBaseTest {
                     .key(key)
                     .value(data)
                     .send();
-            expected.put(key, data);
+            if ((expected.get(key) == null && compactionKeepPolicy.equals("keep-first")) 
+            || compactionKeepPolicy.equals("keep-last")) {
+                // Only add the key value if we are keeping the last message
+                // to arrive (original behaviour) OR a message with the key
+                // has not been sent yet.
+                expected.put(key, data);
+            }
         }
-        compactAndVerify(topic, expected);
+        compactAndVerify(topic, expected, compactionKeepPolicy);
     }
 
-    @Test
-    public void testCompactAddCompact() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactAddCompact(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer().topic(topic)
@@ -161,22 +174,28 @@ public class CompactorTest extends MockedPulsarServiceBaseTest {
                 .key("a")
                 .value("A_2".getBytes())
                 .send();
-        expected.put("a", "A_2".getBytes());
+        if (compactionKeepPolicy.equals("keep-last")) {
+            expected.put("a", "A_2".getBytes());
+        } else if (compactionKeepPolicy.equals("keep-first")) {
+            expected.put("a", "A_1".getBytes());
+        }
         expected.put("b", "B_1".getBytes());
 
-        compactAndVerify(topic, new HashMap<>(expected));
+        compactAndVerify(topic, new HashMap<>(expected), compactionKeepPolicy);
 
         producer.newMessage()
                 .key("b")
                 .value("B_2".getBytes())
                 .send();
-        expected.put("b", "B_2".getBytes());
+        if (compactionKeepPolicy.equals("keep-last")) {
+            expected.put("b", "B_2".getBytes());
+        }
 
-        compactAndVerify(topic, expected);
+        compactAndVerify(topic, expected, compactionKeepPolicy);
     }
 
-    @Test
-    public void testCompactedInOrder() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactedInOrder(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         Producer<byte[]> producer = pulsarClient.newProducer().topic(topic)
@@ -197,17 +216,21 @@ public class CompactorTest extends MockedPulsarServiceBaseTest {
                 .key("a")
                 .value("A_2".getBytes()).send();
         Map<String, byte[]> expected = new HashMap<>();
-        expected.put("a", "A_2".getBytes());
+        if (compactionKeepPolicy.equals("keep-last")) {
+            expected.put("a", "A_2".getBytes());
+        } else if (compactionKeepPolicy.equals("keep-first")) {
+            expected.put("a", "A_1".getBytes());
+        }
         expected.put("b", "B_1".getBytes());
         expected.put("c", "C_1".getBytes());
 
-        List<String> keyOrder = compactAndVerify(topic, expected);
+        List<String> keyOrder = compactAndVerify(topic, expected, compactionKeepPolicy);
 
         Assert.assertEquals(keyOrder, Lists.newArrayList("c", "b", "a"));
     }
 
-    @Test
-    public void testCompactEmptyTopic() throws Exception {
+    @Test(dataProvider = "keepPolicy")
+    public void testCompactEmptyTopic(String compactionKeepPolicy) throws Exception {
         String topic = "persistent://my-property/use/my-ns/my-topic1";
 
         // trigger creation of topic on server side
@@ -216,7 +239,7 @@ public class CompactorTest extends MockedPulsarServiceBaseTest {
         BookKeeper bk = pulsar.getBookKeeperClientFactory().create(
                 this.conf, null, Optional.empty(), null);
         Compactor compactor = new TwoPhaseCompactor(conf, pulsarClient, bk, compactionScheduler);
-        compactor.compact(topic).get();
+        compactor.setCompactionKeepPolicy(compactionKeepPolicy).compact(topic).get();
     }
 
     public ByteBuf extractPayload(RawMessage m) throws Exception {

@@ -2397,8 +2397,19 @@ public class PersistentTopic extends AbstractTopic
 
     public synchronized void triggerCompaction()
             throws PulsarServerException, AlreadyRunningException {
+        TopicName name = TopicName.get(topic);
         if (currentCompaction.isDone()) {
-            currentCompaction = brokerService.pulsar().getCompactor().compact(topic);
+            String compactionKeepPolicy = Optional.ofNullable(getTopicPolicies(name))
+                .map(TopicPolicies::getCompactionKeepPolicy)
+                .orElse(null);
+            if (compactionKeepPolicy == null) {
+                Policies policies = brokerService.pulsar().getConfigurationCache().policiesCache()
+                    .get(AdminResource.path(POLICIES, name.getNamespace()))
+                    .orElseThrow(() -> new KeeperException.NoNodeException());
+                compactionKeepPolicy = policies.compaction_keep_policy;
+            }
+            currentCompaction = brokerService.pulsar().getCompactor()
+                .setCompactionKeepPolicy(compactionKeepPolicy).compact(topic);
         } else {
             throw new AlreadyRunningException("Compaction already in progress");
         }

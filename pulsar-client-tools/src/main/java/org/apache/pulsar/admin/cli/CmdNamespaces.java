@@ -1512,6 +1512,36 @@ public class CmdNamespaces extends CmdBase {
         }
     }
 
+    @Parameters(commandDescription = "Get compactionKeepPolicy for a namespace")
+    private class GetCompactionKeepPolicy extends CliCommand {
+        @Parameter(description = "tenant/namespace\n", required = true)
+        private java.util.List<String> params;
+
+        @Override
+        void run() throws PulsarAdminException {
+            String namespace = validateNamespace(params);
+            print(getAdmin().namespaces().getCompactionKeepPolicy(namespace));
+        }
+    }
+
+    @Parameters(commandDescription = "Set compactionKeepPolicy for a namespace")
+    private class SetCompactionKeepPolicy extends CliCommand {
+        @Parameter(description = "tenant/namespace", required = true)
+        private java.util.List<String> params;
+
+        @Parameter(names = { "--policy", "-p" },
+                   description = "The policy to apply when selecting messages to keep post-compaction, valid values: "
+                                 + "'keep-last', 'keep-first'",
+                   required= true)
+        private String policy = "keep-last";
+
+        @Override
+        void run() throws PulsarAdminException {
+            String namespace = validateNamespace(params);
+            getAdmin().namespaces().setCompactionKeepPolicy(namespace, policy);
+        }
+    }
+
     @Parameters(commandDescription = "Get offloadThreshold for a namespace")
     private class GetOffloadThreshold extends CliCommand {
         @Parameter(description = "tenant/namespace\n", required = true)
@@ -2106,6 +2136,9 @@ public class CmdNamespaces extends CmdBase {
 
         jcommander.addCommand("get-compaction-threshold", new GetCompactionThreshold());
         jcommander.addCommand("set-compaction-threshold", new SetCompactionThreshold());
+
+        jcommander.addCommand("get-compaction-keep-policy", new GetCompactionKeepPolicy());
+        jcommander.addCommand("set-compaction-keep-policy", new SetCompactionKeepPolicy());
 
         jcommander.addCommand("get-offload-threshold", new GetOffloadThreshold());
         jcommander.addCommand("set-offload-threshold", new SetOffloadThreshold());

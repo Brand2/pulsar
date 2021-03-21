@@ -28,6 +28,8 @@ import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+
+import io.grpc.netty.shaded.io.netty.util.concurrent.CompleteFuture;
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -3737,6 +3739,31 @@ public class PersistentTopicsBase extends AdminResource {
           return CompletableFuture.completedFuture(null);
         }
         topicPolicies.get().setCompactionThreshold(null);
+        return pulsar().getTopicPoliciesService().updateTopicPoliciesAsync(topicName, topicPolicies.get());
+    }
+
+    protected Optional<String> internalGetCompactionKeepPolicy() {
+        return getTopicPolicies(topicName).map(TopicPolicies::getCompactionKeepPolicy);
+    }
+
+    protected CompletableFuture<Void> internalSetCompactionKeepPolicy(String compactionKeepPolicy) {
+        if (compactionKeepPolicy != null && !compactionKeepPolicy.equals("keep-last") &&
+            !compactionKeepPolicy.equals("keep-first")) {
+            throw new RestException(Status.PRECONDITION_FAILED, "Invalid value for compactionKeePolicy");
+        }
+        
+        TopicPolicies topicPolicies = getTopicPolicies(topicName)
+            .orElseGet(TopicPolicies::new);
+        topicPolicies.setCompactionKeepPolicy(compactionKeepPolicy);
+        return pulsar().getTopicPoliciesService().updateTopicPoliciesAsync(topicName, topicPolicies);
+    }
+
+    protected CompletableFuture<Void> internalRemoveCompactionKeepPolicy() {
+        Optional<TopicPolicies> topicPolicies = getTopicPolicies(topicName);
+        if (!topicPolicies.isPresent()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        topicPolicies.get().setCompactionKeepPolicy(null);
         return pulsar().getTopicPoliciesService().updateTopicPoliciesAsync(topicName, topicPolicies.get());
     }
 

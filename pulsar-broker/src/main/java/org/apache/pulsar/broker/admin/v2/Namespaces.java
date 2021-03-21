@@ -1307,6 +1307,35 @@ public class Namespaces extends NamespacesBase {
     }
 
     @GET
+    @Path("/{tenant}/{namespace}/compactionKeepPolicy")
+    @ApiOperation(value = "The policy for which message is kept during compaction on a per-key basis: Last or first",
+                  notes = "The policy determines whether the most recent or oldest message on the topic is "
+                  + "kept during compaction")
+    @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
+                            @ApiResponse(code = 404, message = "Namespace doesn't exist") })
+    public String getCompactionKeepPolicy(@PathParam("tenant") String tenant,
+                                          @PathParam("namespace") String namespace) {
+            validateNamespaceName(tenant, namespace);
+            return internalGetCompactionKeepPolicy();
+        }
+    
+    @PUT
+    @Path("/{tenant}/{namespace}/compactionKeepPolicy")
+    @ApiOperation(value = "Set maximum number of uncompacted bytes in a topic before compaction is triggered.",
+                  notes = "The backlog size is compared to the threshold periodically. "
+                        + "A threshold of 0 disabled automatic compaction")
+    @ApiResponses(value = { @ApiResponse(code = 403, message = "Don't have admin permission"),
+                            @ApiResponse(code = 404, message = "Namespace doesn't exist"),
+                            @ApiResponse(code = 409, message = "Concurrent modification"),
+                            @ApiResponse(code = 412, message = "compactionKeepPolicy value is not valid") })
+    public void setCompactionKeepPolicy(@PathParam("tenant") String tenant,
+                                        @PathParam("namespace") String namespace,
+                                        String newPolicy) {
+            validateNamespaceName(tenant, namespace);
+            internalSetCompactionKeepPolicy(newPolicy);
+        }
+
+    @GET
     @Path("/{tenant}/{namespace}/offloadThreshold")
     @ApiOperation(value = "Maximum number of bytes stored on the pulsar cluster for a topic,"
                           + " before the broker will start offloading to longterm storage",

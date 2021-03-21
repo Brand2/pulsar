@@ -2590,6 +2590,82 @@ public class TopicsImpl extends BaseResource implements Topics {
     }
 
     @Override
+    public String getCompactionKeepPolicy(String topic) throws PulsarAdminException {
+        try {
+            return getCompactionKeepPolicyAsync(topic).get(this.readTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw (PulsarAdminException) e.getCause();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PulsarAdminException(e);
+        } catch (TimeoutException e) {
+            throw new PulsarAdminException.TimeoutException(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<String> getCompactionKeepPolicyAsync(String topic) {
+        TopicName topicName = validateTopic(topic);
+        WebTarget path = topicPath(topicName, "compactionKeepPolicy");
+        final CompletableFuture<String> future = new CompletableFuture<>();
+        asyncGetRequest(path,
+            new InvocationCallback<String>() {
+                @Override
+                public void completed(String compactionKeepPolicy) {
+                  future.complete(compactionKeepPolicy);
+                }
+
+                @Override
+                public void failed(Throwable throwable) {
+                  future.completeExceptionally(getApiException(throwable.getCause()));
+                }
+            });
+        return future;
+    }
+
+    @Override
+    public void setCompactionKeepPolicy(String topic, String compactionKeepPolicy) throws PulsarAdminException {
+        try {
+            setCompactionKeepPolicyAsync(topic, compactionKeepPolicy).get(this.readTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw (PulsarAdminException) e.getCause();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PulsarAdminException(e);
+        } catch (TimeoutException e) {
+            throw new PulsarAdminException.TimeoutException(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> setCompactionKeepPolicyAsync(String topic, String compactionKeepPolicy) {
+        TopicName topicName = validateTopic(topic);
+        WebTarget path = topicPath(topicName, "compactionKeepPolicy");
+        return asyncPostRequest(path, Entity.entity(compactionKeepPolicy, MediaType.APPLICATION_JSON));
+    }
+
+    @Override
+    public void removeCompactionKeepPolicy(String topic) throws PulsarAdminException {
+        try {
+            removeCompactionKeepPolicyAsync(topic).get(this.readTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw (PulsarAdminException) e.getCause();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PulsarAdminException(e);
+        } catch (TimeoutException e) {
+            throw new PulsarAdminException.TimeoutException(e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> removeCompactionKeepPolicyAsync(String topic) {
+        TopicName topicName = validateTopic(topic);
+        WebTarget path = topicPath(topicName, "compactionKeepPolicy");
+        return asyncDeleteRequest(path);
+    }
+
+    @Override
     public PublishRate getPublishRate(String topic) throws PulsarAdminException {
         try {
             return getPublishRateAsync(topic).get(this.readTimeoutMs, TimeUnit.MILLISECONDS);

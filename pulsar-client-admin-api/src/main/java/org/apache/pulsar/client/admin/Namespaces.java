@@ -3132,6 +3132,92 @@ public interface Namespaces {
     CompletableFuture<Void> setCompactionThresholdAsync(String namespace, long compactionThreshold);
 
     /**
+     * Get the compaction keep policy for messages for a namespace. Valid values are keep-last (default) and keep-first,
+     * which keep the last message related to a key, or the first message respectively. Only relevant when compaction
+     * threshold has been set.
+     * 
+     * <p/>
+     * Response example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param namespace
+     *          Namespace name
+     * 
+     * @throws NotAuthorizedException
+     *             Don't have admin permission
+     * @throws NotFoundException
+     *             Namespace does not exist
+     * @throws PulsarAdminException
+     *             Unexpected error
+     */
+    String getCompactionKeepPolicy(String namespace) throws PulsarAdminException;
+     
+     /**
+     * Get the compaction keep policy for messages for a namespace asychronously. Valid values are keep-last (default)
+     * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
+     * when compaction threshold has been set.
+     * 
+     * <p/>
+     * Response example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param namespace
+     *          Namespace name
+     */
+    CompletableFuture<String> getCompactionKeepPolicyAsync(String namespace);
+
+    /**
+     * Set the compaction keep policy for messages for a namespace. Valid values are keep-last (default) and keep-first,
+     * which keep the last message related to a key, or the first message respectively. Only relevant when compaction
+     * threshold has been set.
+     * 
+     * <p/>
+     * Request example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param namespace
+     *          Namespace name
+     * @param compactionKeepPolicy
+     *          The policy to adopt when determining which messages to keep after compaction
+     * 
+     * @throws NotAuthorizedException
+     *             Don't have admin permission
+     * @throws NotFoundException
+     *             Namespace does not exist
+     * @throws PulsarAdminException
+     *             Unexpected error
+     */
+     void setCompactionKeepPolicy(String namespace, String compactionKeepPolicy) throws PulsarAdminException;
+
+     /**
+     * Set the compaction keep policy for messages for a namespace asychronously. Valid values are keep-last (default)
+     * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
+     * when compaction threshold has been set.
+     * 
+     * <p/>
+     * Request example:
+     * 
+     * <pre>
+     * <code>keep-last</code>
+     * </pre>
+     * 
+     * @param namespace
+     *          Namespace name
+     * @param compactionKeepPolicy
+     *       The policy to adopt when determining which messages to keep after compaction   
+     */
+    CompletableFuture<Void> setCompactionKeepPolicyAsync(String namespace, String compactionKeepPolicy);
+
+    /**
      * Get the offloadThreshold for a namespace. The maximum number of bytes stored on the pulsar cluster for topics
      * in the namespace before data starts being offloaded to longterm storage.
      *

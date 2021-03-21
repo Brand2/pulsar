@@ -1767,6 +1767,48 @@ public class CmdTopics extends CmdBase {
         }
     }
 
+    @Parameters(commandDescription = "Get the compactionKeepPolicy for a topic")
+    private class GetCompactionKeepPolicy extends CliCommand {
+        @Parameter(description = "persistent://tenant/namespace/topic", required = true)
+        private java.util.List<String> params;
+
+        @Override
+        void run() throws PulsarAdminException {
+            String persistentTopic = validatePersistentTopic(params);
+            print(getAdmin().topics().getCompactionKeepPolicy(persistentTopic));
+        }
+    }
+
+    @Parameters(commandDescription = "Set the compactionKeepPolicy for a topic")
+    private class SetCompactionKeepPolicy extends CliCommand {
+        @Parameter(description = "persistent://tenant/namespace/topic", required = true)
+        private java.util.List<String> params;
+
+        @Parameter(names = { "--policy", "-p" },
+                   description = "The policy to apply when selecting messages to keep post-compaction, valid values: "
+                   + "'keep-last', 'keep-first'",
+                   required = true)
+        private String policy = "keep-last";
+
+        @Override
+        void run() throws PulsarAdminException {
+            String persistentTopic = validatePersistentTopic(params);
+            getAdmin().topics().setCompactionKeepPolicy(persistentTopic, policy);
+        }
+    }
+
+    @Parameters(commandDescription = "Remove the compactionKeepPolicy for a topic")
+    private class RemoveCompactionKeepPolicy extends CliCommand {
+        @Parameter(description = "persistent://tenant/namespace/topic", required = true)
+        private java.util.List<String> params;
+
+        @Override
+        void run() throws PulsarAdminException {
+            String persistentTopic = validatePersistentTopic(params);
+            getAdmin().topics().removeCompactionKeepPolicy(persistentTopic);
+        }
+    }
+
     @Parameters(commandDescription = "Get publish rate for a topic")
     private class GetPublishRate extends CliCommand {
         @Parameter(description = "persistent://tenant/namespace/topic", required = true)
