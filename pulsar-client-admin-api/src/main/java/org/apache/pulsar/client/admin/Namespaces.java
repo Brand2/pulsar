@@ -3222,17 +3222,14 @@ public interface Namespaces {
      * Get the compaction keep policy for messages for a namespace. Valid values are keep-last (default) and keep-first,
      * which keep the last message related to a key, or the first message respectively. Only relevant when compaction
      * threshold has been set.
-     * 
      * <p/>
      * Response example:
      * 
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param namespace
      *          Namespace name
-     * 
      * @throws NotAuthorizedException
      *             Don't have admin permission
      * @throws NotFoundException
@@ -3241,15 +3238,13 @@ public interface Namespaces {
      *             Unexpected error
      */
     String getCompactionKeepPolicy(String namespace) throws PulsarAdminException;
-     
+
      /**
      * Get the compaction keep policy for messages for a namespace asychronously. Valid values are keep-last (default)
      * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
      * when compaction threshold has been set.
-     * 
      * <p/>
      * Response example:
-     * 
      * <pre>
      * <code>keep-last</code>
      * </pre>
@@ -3268,12 +3263,10 @@ public interface Namespaces {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param namespace
      *          Namespace name
      * @param compactionKeepPolicy
      *          The policy to adopt when determining which messages to keep after compaction
-     * 
      * @throws NotAuthorizedException
      *             Don't have admin permission
      * @throws NotFoundException
@@ -3292,7 +3285,6 @@ public interface Namespaces {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param namespace
      *          Namespace name
      * @param compactionKeepPolicy

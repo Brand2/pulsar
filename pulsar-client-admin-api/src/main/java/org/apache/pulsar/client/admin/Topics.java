@@ -2640,10 +2640,8 @@ public interface Topics {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param topic
      *             Topic name
-     * 
      * @throws NotAuthorizedException
      *             Don't have admin permission
      * @throws NotFoundException
@@ -2652,7 +2650,7 @@ public interface Topics {
      *             Unexpected error
      */
     String getCompactionKeepPolicy(String topic) throws PulsarAdminException;
-    
+
      /**
      * Get the compaction keep policy for messages for a topic asychronously. Valid values are keep-last (default)
      * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
@@ -2662,7 +2660,6 @@ public interface Topics {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param topic
      *          Topic name
      */
@@ -2677,12 +2674,10 @@ public interface Topics {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param topic
      *             Topic name
      * @param compactionKeepPolicy
      *             The policy to adopt when determining which messages to keep after compaction
-     * 
      * @throws NotAuthorizedException
      *             Don't have admin permission
      * @throws NotFoundException
@@ -2701,7 +2696,6 @@ public interface Topics {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param topic
      *             Topic name
      * @param compactionKeepPolicy
@@ -2711,10 +2705,8 @@ public interface Topics {
 
     /**
      * Remove the compaction keep policy for messages for a topic.
-     * 
      * @param topic
      *             Topic name
-     * 
      * @throws PulsarAdminException
      *             Unexpected error
      */
@@ -2722,7 +2714,6 @@ public interface Topics {
 
     /**
      * Remove the compaction keep policy for messages for a topic asynchronously.
-     * 
      * @param topic
      *             Topic name
      */
