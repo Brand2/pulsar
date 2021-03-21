@@ -3224,7 +3224,6 @@ public interface Namespaces {
      * threshold has been set.
      * <p/>
      * Response example:
-     * 
      * <pre>
      * <code>keep-last</code>
      * </pre>
@@ -3248,7 +3247,6 @@ public interface Namespaces {
      * <pre>
      * <code>keep-last</code>
      * </pre>
-     * 
      * @param namespace
      *          Namespace name
      */
@@ -3288,7 +3286,7 @@ public interface Namespaces {
      * @param namespace
      *          Namespace name
      * @param compactionKeepPolicy
-     *       The policy to adopt when determining which messages to keep after compaction   
+     *       The policy to adopt when determining which messages to keep after compaction
      */
     CompletableFuture<Void> setCompactionKeepPolicyAsync(String namespace, String compactionKeepPolicy);
 
