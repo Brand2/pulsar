@@ -3263,10 +3263,8 @@ public interface Namespaces {
      * Set the compaction keep policy for messages for a namespace. Valid values are keep-last (default) and keep-first,
      * which keep the last message related to a key, or the first message respectively. Only relevant when compaction
      * threshold has been set.
-     * 
      * <p/>
      * Request example:
-     * 
      * <pre>
      * <code>keep-last</code>
      * </pre>
@@ -3289,10 +3287,8 @@ public interface Namespaces {
      * Set the compaction keep policy for messages for a namespace asychronously. Valid values are keep-last (default)
      * and keep-first, which keep the last message related to a key, or the first message respectively. Only relevant
      * when compaction threshold has been set.
-     * 
      * <p/>
      * Request example:
-     * 
      * <pre>
      * <code>keep-last</code>
      * </pre>
